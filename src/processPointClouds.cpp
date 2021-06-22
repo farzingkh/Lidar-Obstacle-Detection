@@ -1,7 +1,7 @@
 // PCL lib Functions for processing point clouds 
 
 #include "processPointClouds.h"
-
+#include <unordered_set>
 
 //constructor:
 template<typename PointT>
@@ -59,6 +59,57 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     return segResult;
 }
 
+template<typename PointT>
+std::unordered_set<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceTol)
+{
+	std::unordered_set<int> inliersResult;
+	srand(time(NULL));
+	
+	// TODO: Fill in this function
+    // For max iterations
+    for (size_t i =0; i < maxIterations; i++)
+    {
+		std::unordered_set<int> inliers;
+
+		while (inliers.size() < 3)
+			inliers.insert(rand()%cloud->points.size());
+
+		// get the pointer to begining of inliers
+		auto it = inliers.begin();
+		
+		// get random points
+		PointT p1 = cloud->points[*it];
+		it++;
+		PointT p2 = cloud->points[*it];
+		it++;
+		PointT p3 = cloud->points[*it];
+
+		// get plane coefficients
+		float A = (p2.y-p1.y)*(p3.z-p1.z) - (p2.z-p1.z)*(p3.y-p1.y);
+		float B = (p2.z-p1.z)*(p3.x-p1.x) - (p2.x-p1.x)*(p3.z-p1.z);
+		float C = (p2.x-p1.x)*(p3.y-p1.y) - (p2.y-p1.y)*(p3.x-p1.x);
+		float D = -(A*p1.x+B*p1.y+C*p1.z);
+
+		// Measure distance between every point and fitted line
+		for (int i = 0; i < cloud->points.size(); i++)
+		{
+			PointT p = cloud->points[i];
+			if (std::fabs(A*p.x + B*p.y + C*p.z + D)/(std::sqrt(A*A+B*B+C*C)) < distanceTol)
+			{
+				// If distance is smaller than threshold count it as inlier
+				inliers.insert(i);
+			}
+		}
+
+		if (inliers.size() > inliersResult.size())
+		{
+			inliersResult = inliers;
+		}
+
+	// Return indicies of inliers from fitted line with most inliers
+    }
+	return inliersResult;
+}
 
 template<typename PointT>
 std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold)
