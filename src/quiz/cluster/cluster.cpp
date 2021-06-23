@@ -75,21 +75,49 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
+void clusterHelper(uint id, const std::vector<std::vector<float>>& points, std::vector<bool> &processed, std::vector<int> &cluster, KdTree* tree, float distanceTol)
+{
+	// mark point as processes
+	processed[id] = true;
+	// add the point to the cluster
+	cluster.push_back(id);
+	// find nearest neighbours
+	std::vector<int> neighbours = tree->search(points[id], distanceTol);
+	// iterate through neighbours and find their neighbours 
+	for(auto idx : neighbours)
+	{
+		if (!processed[idx])
+			clusterHelper(idx, points, processed, cluster, tree, distanceTol);
+	}
+}
+
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
 {
 
 	// TODO: Fill out this function to return list of indices for each cluster
 
 	std::vector<std::vector<int>> clusters;
- 
+	// index in the vector of points and each node of the KdTree is the same
+	std::vector<bool> processed (points.size(), false);
+	for (uint i = 0; i < points.size(); i++)
+	{
+		if (!processed[i])
+		{	
+			// create cluster for the point
+			std::vector<int> cluster;
+			// find neighbours for the cluster
+			clusterHelper(i, points, processed, cluster, tree, distanceTol);
+			// keep the found cluster
+			clusters.push_back(cluster);
+		}
+	}
 	return clusters;
-
 }
 
 int main ()
 {
 
-	// Create viewer
+	// Create viewer	
 	Box window;
   	window.x_min = -10;
   	window.x_max =  10;
