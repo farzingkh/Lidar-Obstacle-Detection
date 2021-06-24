@@ -55,9 +55,7 @@ struct KdTree
 
 	void searchHelper(std::vector<float> target, std::vector<int> &ids, Node* n, float distanceTol, uint axis = 0)
 	{
-		// check if the node is within a box of distance tolerance of the target point
-		// and search the subspace accordingly
-		if (n == NULL)
+		// check if t0:50 / 1:28LL)
 			return;
 		if (target[axis%2]+distanceTol < n->point[axis%2])
 			searchHelper(target, ids, n->left, distanceTol, ++axis);
