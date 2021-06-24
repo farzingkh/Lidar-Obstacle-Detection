@@ -28,13 +28,46 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     auto startTime = std::chrono::steady_clock::now();
 
     // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    typename pcl::PointCloud<PointT>::Ptr filtered_cloud (new pcl::PointCloud<PointT>);
+    // create filtering object
+    pcl::VoxelGrid<PointT> fil;
+    fil.setInputCloud(cloud);
+    // leaf size of 1cm
+    fil.setLeafSize(filterRes, filterRes, filterRes);
+    fil.filter(*filtered_cloud);
+    
+    // set region of interest
+    typename pcl::PointCloud<PointT>::Ptr region_cloud (new pcl::PointCloud<PointT>);
+    pcl::CropBox<PointT> region(true);
+    region.setMin(minPoint);
+    region.setMax(maxPoint);
+    region.setInputCloud(filtered_cloud);
+    region.filter(*region_cloud);
+    
+    // remove the top of the car
+    std::vector<int> indices;
+    pcl::CropBox<PointT> roof(true);
+    roof.setMin(Eigen::Vector4f (-1.5, -1.7, -1, 1));
+    roof.setMax(Eigen::Vector4f (2.6, 1.7, -0.4, 1));
+    roof.setInputCloud(region_cloud);
+    // keep results of crop box in indices
+    roof.filter(indices);
+    // create extractor object and filter indices to remove the top of the car
+    pcl::PointIndices::Ptr inliers {new pcl::PointIndices};
+    for(int point : indices)
+        inliers->indices.push_back(point);
+    
+    pcl::ExtractIndices<PointT> extract;
+    extract.setInputCloud(region_cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*region_cloud);
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
-
+    return region_cloud;
 }
 
 
@@ -46,10 +79,12 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     // create extract object 
     pcl::ExtractIndices<PointT> extractor;
     extractor.setInputCloud(cloud);
+
     // extract planar object
     extractor.setIndices(inliers);
     extractor.setNegative(false);
     extractor.filter(*cloud_p);
+
     // extract obstacles
     extractor.setNegative(true);
     extractor.filter(*cloud_f);
@@ -101,13 +136,13 @@ std::unordered_set<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
 			}
 		}
 
+        // keep the model with highest number of inliers
 		if (inliers.size() > inliersResult.size())
 		{
 			inliersResult = inliers;
 		}
-
-	// Return indicies of inliers from fitted line with most inliers
     }
+
 	return inliersResult;
 }
 
@@ -139,10 +174,12 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
         std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
     }
 
+    // print the time take for segmentation
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
-
+    
+    // gather results in a std::pair and return
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
     return segResult;
 }
