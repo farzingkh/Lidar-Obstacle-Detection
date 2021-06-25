@@ -1,4 +1,5 @@
 # Lidar Obstacle Detection 
+This repo implements RANSAC for plane segmentation and Euclidean Clustering algorithm using KdTrees to perform clustering for obstacle detection on real lidar data. 
 
 <img src="media/ObstacleDetectionFPS.gif" width="700" height="400" />
 
